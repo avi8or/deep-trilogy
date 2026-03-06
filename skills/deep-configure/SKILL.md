@@ -7,24 +7,32 @@ description: Set up project-level auto-approve permissions to reduce friction du
 
 Walks users through setting up project-level `.claude/settings.json` auto-approve rules so deep-trilogy workflows run with minimal approval prompts.
 
-## Step 1: Detect Environment
+## Step 0: Resolve Plugin Root
 
-**Locate `DEEP_PLUGIN_ROOT` in your context** (injected by SessionStart hook). If not available, discover it:
+Look for `DEEP_PLUGIN_ROOT=<path>` in your conversation context (injected by the SessionStart hook). Extract the path value.
+
+**IMPORTANT:** `DEEP_PLUGIN_ROOT` is conversation context, NOT a shell environment variable. You must substitute the actual path value into commands. Do NOT use `${DEEP_PLUGIN_ROOT}` in bash — it will be empty.
+
+If `DEEP_PLUGIN_ROOT` is not in your context, discover it:
 ```bash
 find ~/.claude/plugins/cache -name "plugin.json" -path "*avi8or*deep-trilogy*" -type f 2>/dev/null | head -1 | xargs dirname | xargs dirname
 ```
+
+Store the resolved path as `plugin_root` for all subsequent commands.
+
+## Step 1: Detect Environment
 
 Get the project directory:
 ```bash
 pwd
 ```
 
-Run the check script:
+Run the check script (substitute `plugin_root` value directly):
 ```bash
-python3 "${DEEP_PLUGIN_ROOT}/scripts/tools/setup-permissions.py" \
+python3 <plugin_root>/scripts/tools/setup-permissions.py \
   --mode check \
   --project-dir "$(pwd)" \
-  --plugin-root "${DEEP_PLUGIN_ROOT}"
+  --plugin-root "<plugin_root>"
 ```
 
 Parse the JSON output. Print the detection banner:
@@ -135,11 +143,11 @@ If "Cancel" → print "No changes made." and stop.
 
 Run the apply command:
 ```bash
-python3 "${DEEP_PLUGIN_ROOT}/scripts/tools/setup-permissions.py" \
+python3 <plugin_root>/scripts/tools/setup-permissions.py \
   --mode apply \
-  --project-dir "{project_dir}" \
-  --plugin-root "${DEEP_PLUGIN_ROOT}" \
-  --tiers "{selected_tiers}"
+  --project-dir "<project_dir>" \
+  --plugin-root "<plugin_root>" \
+  --tiers "<selected_tiers>"
 ```
 
 Parse the JSON output and print:

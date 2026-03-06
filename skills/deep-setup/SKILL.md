@@ -13,12 +13,25 @@ The deep-trilogy plugins check context usage before expensive operations (extern
 
 ## Steps
 
+### 0. Resolve Plugin Root
+
+Look for `DEEP_PLUGIN_ROOT=<path>` in your conversation context (injected by the SessionStart hook). Extract the path value — you'll substitute it directly into commands below.
+
+**IMPORTANT:** `DEEP_PLUGIN_ROOT` is conversation context, NOT a shell environment variable. You must substitute the actual path value into commands. Do NOT use `${DEEP_PLUGIN_ROOT}` in bash — it will be empty.
+
+If `DEEP_PLUGIN_ROOT` is not in your context, discover it:
+```bash
+find ~/.claude/plugins/cache -name "plugin.json" -path "*avi8or*deep-trilogy*" -type f 2>/dev/null | head -1 | xargs dirname | xargs dirname
+```
+
+Store the resolved path as `plugin_root` for all subsequent commands.
+
 ### 1. Check Current State
 
-Run the check script to see if setup is needed:
+Run the check script (substitute `plugin_root` value directly):
 
 ```bash
-python3 "${DEEP_PLUGIN_ROOT}/scripts/tools/setup-context-tracking.py" --check --plugin-root "${DEEP_PLUGIN_ROOT}"
+python3 <plugin_root>/scripts/tools/setup-context-tracking.py --check --plugin-root "<plugin_root>"
 ```
 
 If the output shows `"configured": true`, tell the user setup is already done and they're good to go. Stop here.
@@ -35,7 +48,7 @@ Ask the user to confirm before proceeding.
 ### 3. Run Setup
 
 ```bash
-python3 "${DEEP_PLUGIN_ROOT}/scripts/tools/setup-context-tracking.py" --plugin-root "${DEEP_PLUGIN_ROOT}"
+python3 <plugin_root>/scripts/tools/setup-context-tracking.py --plugin-root "<plugin_root>"
 ```
 
 ### 4. Verify
