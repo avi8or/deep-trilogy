@@ -37,6 +37,8 @@ def get_rules(category: str, project_dir: str, plugin_root: str) -> list[str]:
             "Bash(tail *)",
             "Bash(wc *)",
             "Bash(which *)",
+            # Context monitoring (session lifecycle reads /tmp/claude-context-pct)
+            "Bash(cat /tmp/claude-context-pct*)",
             # Git read operations
             "Bash(git status*)",
             "Bash(git log*)",
@@ -123,7 +125,7 @@ CATEGORY_META = {
     },
     "F": {
         "name": "Subagent Launches",
-        "description": "Task tool for section-writer, code-reviewer, Explore, web-search subagents",
+        "description": "Task/Agent tool for general-purpose (section writers, code reviewers) and Explore subagents",
         "risk": "Low",
         "default_on": False,
     },

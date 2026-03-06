@@ -65,16 +65,45 @@ If the diff is empty, skip review and proceed to commit.
 
 ### 4. Launch Code Reviewer Subagent
 
-**IMPORTANT:** Do NOT invoke any external skills (e.g., Superpowers `requesting-code-review`) for this step. Use ONLY the Task tool with `subagent_type: "code-reviewer"` as defined in `agents/code-reviewer.md`. This is a plugin-internal subagent, not a skill invocation.
+**IMPORTANT:** Do NOT invoke any external skills (e.g., Superpowers `requesting-code-review`) for this step. Use the Agent tool with `subagent_type: "general-purpose"` and the reviewer instructions embedded in the prompt. Custom subagent types are not supported by Claude Code — only built-in types work.
 
-Launch the `code-reviewer` subagent with both the section plan and the diff:
+Launch the code reviewer subagent with both the section plan and the diff:
 
 ```
-Task:
-  subagent_type: "code-reviewer"
-  description: "Review section NN code"
+Agent:
+  subagent_type: "general-purpose"
   prompt: |
-    Review this implementation:
+    You are a code reviewer for the deep-implement workflow.
+
+    You will receive two file paths:
+    1. **Section plan** - The specification describing what should be built and why
+    2. **Diff file** - The actual code changes as a result of the section plan
+
+    Read both files. Reconcile the implementation and the plan.
+
+    Pretend you're a senior architect who hates this implementation. What would you criticize? What is missing?
+
+    ## Output Format
+
+    Return a JSON object with this EXACT structure:
+
+    ```json
+    {
+      "section": "<section name>",
+      "review": "your review findings here"
+    }
+    ```
+
+    ## Rules
+
+    1. Return ONLY the JSON object - no preamble or explanation
+    2. Be specific - reference exact line numbers/function names
+    3. Prioritize high-severity issues (security, data loss, crashes)
+    4. Check implementation against the plan's requirements
+    5. If no issues found, return that the implementation looked good
+
+    ## Files to Review
+
     - Section plan: {sections_dir}/section-NN-<name>.md
     - Code changes: {code_review_dir}/section-NN-diff.md
 ```
@@ -107,5 +136,3 @@ Write the subagent's review to `{code_review_dir}/section-NN-review.md`:
 ```
 
 After writing the review file, proceed to [code-review-interview.md](code-review-interview.md) for the interactive interview process.
-
-See `agents/code-reviewer.md` for the custom subagent definition.

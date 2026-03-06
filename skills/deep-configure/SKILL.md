@@ -249,10 +249,8 @@ options:
 Category F: Subagent Launches
 
   Auto-approved:
-    ✓ Task(subagent_type="section-writer")   — writes section plan files
-    ✓ Task(subagent_type="code-reviewer")    — reviews implementation diffs
+    ✓ Task(subagent_type="general-purpose")   — section writers, code reviewers
     ✓ Task(subagent_type="Explore")          — researches your codebase
-    ✓ Task(subagent_type="web-search")       — researches web for context
 
   What this means:
     Subagents run as separate Claude conversations in parallel.
