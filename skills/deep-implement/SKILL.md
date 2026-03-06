@@ -9,6 +9,27 @@ compatibility: Requires uv (Python 3.11+), git repository recommended
 
 Implements code from /deep-plan section files with integrated review and git workflow.
 
+## Auto-Resume Check
+
+**Before anything else, check your context for `DEEP_RESUME_STEP`.**
+
+If `DEEP_RESUME_STEP` is present (injected by the SessionStart hook from a snapshot), this is a resumed session after `/clear`. Do NOT show the intro banner or prompt for a sections directory. Instead:
+
+1. Print:
+```
+═══════════════════════════════════════════════════════════════
+DEEP-IMPLEMENT: Resuming — {DEEP_RESUME_NAME} (step {DEEP_RESUME_STEP})
+Progress: {DEEP_PROGRESS}
+═══════════════════════════════════════════════════════════════
+```
+2. The snapshot path is in `DEEP_SNAPSHOT`. Extract the state directory (parent of snapshot path).
+3. Read `deep_implement_config.json` from the state directory to get `sections_dir`.
+4. Go directly to **Step D (Setup Implementation Session)** with that sections directory. The setup script will detect the resume and skip completed sections.
+
+If `DEEP_RESUME_STEP` is NOT in your context, proceed normally below.
+
+---
+
 ## CRITICAL: First Actions
 
 **BEFORE using any other tools**, do these in order:
@@ -381,18 +402,16 @@ Completed: {M}/{N} sections
 Next: section-{NN+1}-{name}
 
 Context Management Options:
-  1. /clear + re-run /deep-implement (Recommended)
+  1. /clear (Recommended)
      - Fresh context with full instructions
-     - Progress preserved via file-based recovery
+     - Auto-resumes on next session — no need to re-type the command
 
   2. Continue in current session
      - Auto-compact triggers at ~95% if needed
      - May lose some instruction detail after compaction
-
-Type "continue" or run /clear and re-invoke /deep-implement @{sections_dir}/.
 ```
 
-Wait for user response. If they say "continue", proceed to Step 14.
+Use `AskUserQuestion` to present these options. If user picks option 1, tell them to type `/clear`. The snapshot is already saved — next session auto-resumes via the SessionStart hook. If user picks option 2 or says "continue", proceed to Step 14.
 
 ### Step 14: Loop
 
@@ -462,9 +481,9 @@ Please review the section file.
 
 ## Context Recovery
 
-**After `/clear` + re-run `/deep-implement`:**
+**After `/clear` (auto-resume):**
 
-The setup script detects completed sections via `deep_implement_config.json` and marks their tasks complete. You'll resume from the next pending section with fresh instructions.
+The SessionStart hook discovers the snapshot and injects `DEEP_RESUME_STEP` into your context. The Auto-Resume Check at the top of this skill picks it up and goes directly to the setup step. The setup script detects completed sections via `deep_implement_config.json` and marks their tasks complete. You resume from the next pending section with fresh instructions — no re-typing needed.
 
 **After compaction (if user chose "continue"):**
 

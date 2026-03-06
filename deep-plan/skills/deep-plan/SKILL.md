@@ -9,6 +9,27 @@ compatibility: Requires uv (Python 3.11+), Gemini or OpenAI API key for external
 
 Orchestrates a multi-step planning process: Research → Interview → External LLM Review → TDD Plan
 
+## Auto-Resume Check
+
+**Before anything else, check your context for `DEEP_RESUME_STEP`.**
+
+If `DEEP_RESUME_STEP` is present (injected by the SessionStart hook from a snapshot), this is a resumed session after `/clear`. Do NOT show the intro banner or prompt for a spec file. Instead:
+
+1. Print:
+```
+═══════════════════════════════════════════════════════════════
+DEEP-PLAN: Resuming — {DEEP_RESUME_NAME} (step {DEEP_RESUME_STEP})
+Progress: {DEEP_PROGRESS}
+═══════════════════════════════════════════════════════════════
+```
+2. The snapshot path is in `DEEP_SNAPSHOT`. Extract the planning directory (parent of snapshot path).
+3. Find the spec file: look for `spec.md` or `*.spec.md` in the planning directory.
+4. Go directly to **Step 4 (Setup Planning Session)** with that spec file path. The setup script will detect the resume and skip completed work.
+
+If `DEEP_RESUME_STEP` is NOT in your context, proceed normally below.
+
+---
+
 ## CRITICAL: First Actions
 
 **BEFORE using any other tools**, do these in order:
@@ -343,7 +364,7 @@ uv run {plugin_root}/scripts/checks/check-context-decision.py \
 Read `{plugin_root}/skills/deep-plan/references/context-check.md` for handling the output.
 
 - If user chooses "Continue", proceed to step 13
-- If user chooses "/clear + re-run", they will restart with fresh context (file-based recovery resumes here)
+- If user chooses "/clear", the snapshot is already saved — next session auto-resumes via the SessionStart hook
 
 ### 13. External LLM Review
 
@@ -402,7 +423,7 @@ uv run {plugin_root}/scripts/checks/check-context-decision.py \
 Read `{plugin_root}/skills/deep-plan/references/context-check.md` for handling the output.
 
 - If user chooses "Continue", proceed to step 18
-- If user chooses "/clear + re-run", they will restart with fresh context (file-based recovery resumes here)
+- If user chooses "/clear", the snapshot is already saved — next session auto-resumes via the SessionStart hook
 
 ### 18. Create Section Index
 

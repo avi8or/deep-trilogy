@@ -46,10 +46,10 @@ uv run {plugin_root}/scripts/checks/check-context-decision.py \
 - Auto-compact will trigger at ~95% context if needed
 - If Claude gets confused after auto-compact, user can `/clear` and re-run
 
-**If user chooses "/clear + re-run":**
-- User will run `/clear` then re-run `/deep-plan @<spec-file>`
-- This gives a fresh context window with full instructions
-- Progress is preserved - file-based recovery resumes where they left off
+**If user chooses "/clear":**
+- User runs `/clear` — that's it
+- The snapshot is already written, so the next session's SessionStart hook will inject `DEEP_RESUME_STEP` and the skill auto-resumes
+- No need to re-type the /deep-plan command
 
 ## Trade-offs Explained
 
