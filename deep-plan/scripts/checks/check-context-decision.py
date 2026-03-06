@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Check if context prompts are enabled and return prompt or skip action.
+"""Check context usage and return prompt or skip action.
 
-Simple config check - no estimation logic. Returns whether Claude should
-prompt the user about compacting before a critical operation.
+Reads context percentage from /tmp/claude-context-pct (written by statusline),
+applies threshold logic, and returns a prompt with the percentage included
+so users can make informed decisions.
 
 Usage:
     uv run check-context-decision.py --planning-dir "/path/to/planning" --upcoming-operation "External LLM Review"
@@ -10,6 +11,7 @@ Usage:
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -17,9 +19,49 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from lib.config import load_session_config, ConfigError
 
+CONTEXT_PCT_FILE = Path(os.environ.get("DEEP_CONTEXT_FILE", "/tmp/claude-context-pct"))
+
+
+def read_context_pct() -> int | None:
+    """Read context percentage from the shared file written by the statusline."""
+    try:
+        text = CONTEXT_PCT_FILE.read_text().strip()
+        pct = int(text)
+        if 0 <= pct <= 100:
+            return pct
+    except (FileNotFoundError, ValueError, OSError):
+        pass
+    return None
+
+
+def build_prompt_message(upcoming_operation: str, context_pct: int | None) -> str:
+    """Build the prompt message, including context percentage when available."""
+    if context_pct is not None and context_pct >= 85:
+        header = (
+            f"Context check before: {upcoming_operation} | "
+            f"Context usage: {context_pct}% (HIGH — /clear recommended)"
+        )
+    elif context_pct is not None:
+        header = (
+            f"Context check before: {upcoming_operation} | "
+            f"Context usage: {context_pct}%"
+        )
+    else:
+        header = (
+            f"Context check before: {upcoming_operation} | "
+            "Context usage: unknown (statusline not configured)"
+        )
+
+    return (
+        f"{header}\n\n"
+        "Note: Compaction (manual or auto) may cause workflow instruction loss. "
+        "If Claude gets confused after compacting, /clear + re-run /deep-plan is the cleanest recovery - "
+        "your progress is preserved in planning files."
+    )
+
 
 def main():
-    parser = argparse.ArgumentParser(description="Check if context prompts are enabled")
+    parser = argparse.ArgumentParser(description="Check context usage and decide whether to prompt")
     parser.add_argument(
         "--planning-dir",
         required=True,
@@ -33,15 +75,7 @@ def main():
     )
     args = parser.parse_args()
 
-    upcoming_operation = args.upcoming_operation
-
-    # Build the prompt with trade-off explanations
-    prompt_message = (
-        f"Context check before: {upcoming_operation}\n\n"
-        "Note: Compaction (manual or auto) may cause workflow instruction loss. "
-        "If Claude gets confused after compacting, /clear + re-run /deep-plan is the cleanest recovery - "
-        "your progress is preserved in planning files."
-    )
+    context_pct = read_context_pct()
 
     prompt_options = [
         {
@@ -54,16 +88,18 @@ def main():
         },
     ]
 
+    # Load config to check if context prompts are enabled
     try:
         config = load_session_config(args.planning_dir)
     except (ConfigError, json.JSONDecodeError) as e:
-        # If config can't be loaded, default to prompting
+        # Config error — default to prompting
         print(json.dumps({
             "action": "prompt",
             "reason": f"Config error ({e}), defaulting to prompt",
+            "context_pct": context_pct,
             "check_enabled": True,
             "prompt": {
-                "message": prompt_message,
+                "message": build_prompt_message(args.upcoming_operation, context_pct),
                 "options": prompt_options
             }
         }))
@@ -72,22 +108,35 @@ def main():
     ctx = config.get("context", {})
     check_enabled = ctx.get("check_enabled", True)
 
-    # If checks disabled, skip entirely
-    if not check_enabled:
+    # If checks disabled, skip entirely (unless >= 85% — always warn at critical levels)
+    if not check_enabled and (context_pct is None or context_pct < 85):
         print(json.dumps({
             "action": "skip",
             "reason": "Context prompts disabled in config",
+            "context_pct": context_pct,
             "check_enabled": False
         }))
         return 0
 
-    # Checks enabled - return prompt
+    # Apply threshold logic (script is only called at scheduled checkpoints)
+    # < 50%: skip — plenty of room
+    if context_pct is not None and context_pct < 50:
+        print(json.dumps({
+            "action": "skip",
+            "reason": f"Context at {context_pct}% — below threshold, skipping prompt",
+            "context_pct": context_pct,
+            "check_enabled": True
+        }))
+        return 0
+
+    # >= 50% or unknown: prompt
     print(json.dumps({
         "action": "prompt",
-        "reason": "Context prompts enabled",
+        "reason": f"Context at {context_pct}%" if context_pct is not None else "Context unknown, prompting by default",
+        "context_pct": context_pct,
         "check_enabled": True,
         "prompt": {
-            "message": prompt_message,
+            "message": build_prompt_message(args.upcoming_operation, context_pct),
             "options": prompt_options
         }
     }))

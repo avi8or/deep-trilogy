@@ -25,12 +25,17 @@ class TestCheckContextDecision:
         return Path(__file__).parent.parent
 
     @pytest.fixture
+    def context_file(self, tmp_path):
+        """Provide a temp context file and set DEEP_CONTEXT_FILE env var."""
+        path = tmp_path / "claude-context-pct"
+        return path
+
+    @pytest.fixture
     def planning_dir_with_config(self, tmp_path, plugin_root):
         """Create a planning directory with session config."""
         planning_dir = tmp_path / "planning"
         planning_dir.mkdir()
 
-        # Create session config (copies global config + adds session keys)
         create_session_config(
             planning_dir=planning_dir,
             plugin_root=str(plugin_root),
@@ -40,11 +45,16 @@ class TestCheckContextDecision:
         return planning_dir
 
     @pytest.fixture
-    def run_script(self, script_path, plugin_root):
+    def run_script(self, script_path, context_file):
         """Factory fixture to run check-context-decision.py."""
-        def _run(planning_dir: Path, upcoming_operation: str, config_override: dict = None, timeout=10):
-            """Run the script with given operation name and planning dir."""
+        def _run(planning_dir: Path, upcoming_operation: str, context_pct: int | None = None, config_override: dict = None, timeout=10):
             env = os.environ.copy()
+            env["DEEP_CONTEXT_FILE"] = str(context_file)
+
+            if context_pct is not None:
+                context_file.write_text(str(context_pct))
+            elif context_file.exists():
+                context_file.unlink()
 
             cmd = [
                 "uv", "run", str(script_path),
@@ -52,11 +62,9 @@ class TestCheckContextDecision:
                 "--upcoming-operation", upcoming_operation
             ]
 
-            # If config override provided, update the session config
             if config_override:
                 config_path = planning_dir / "deep_plan_config.json"
                 current_config = json.loads(config_path.read_text())
-                # Deep merge the override
                 for key, value in config_override.items():
                     if isinstance(value, dict) and key in current_config:
                         current_config[key] = {**current_config.get(key, {}), **value}
@@ -75,22 +83,11 @@ class TestCheckContextDecision:
             return result
         return _run
 
-    def test_default_config_prompts(self, run_script, planning_dir_with_config):
-        """Should prompt when check_enabled is true (default)."""
-        result = run_script(planning_dir_with_config, "External LLM Review")
-
-        assert result.returncode == 0
-        output = json.loads(result.stdout)
-
-        assert output["action"] == "prompt"
-        assert output["check_enabled"] is True
-        assert "prompt" in output
-        assert "message" in output["prompt"]
-        assert "options" in output["prompt"]
+    # --- Basic behavior ---
 
     def test_prompt_includes_operation_name(self, run_script, planning_dir_with_config):
         """Should include upcoming operation in prompt message."""
-        result = run_script(planning_dir_with_config, "Split Plan Into Sections")
+        result = run_script(planning_dir_with_config, "Split Plan Into Sections", context_pct=65)
 
         assert result.returncode == 0
         output = json.loads(result.stdout)
@@ -99,7 +96,7 @@ class TestCheckContextDecision:
 
     def test_prompt_options_format(self, run_script, planning_dir_with_config):
         """Should return properly formatted prompt options."""
-        result = run_script(planning_dir_with_config, "Test Operation")
+        result = run_script(planning_dir_with_config, "Test Operation", context_pct=60)
 
         assert result.returncode == 0
         output = json.loads(result.stdout)
@@ -107,36 +104,22 @@ class TestCheckContextDecision:
         options = output["prompt"]["options"]
         assert len(options) == 2
 
-        # Check each option has label and description
         for opt in options:
             assert "label" in opt
             assert "description" in opt
 
-        # Check specific options
         labels = [opt["label"] for opt in options]
         assert "Continue" in labels
         assert "/clear + re-run" in labels
 
-    def test_check_disabled_skips(self, run_script, planning_dir_with_config):
-        """Should skip when check_enabled is false in config."""
-        result = run_script(
-            planning_dir_with_config,
-            "Test Operation",
-            config_override={"context": {"check_enabled": False}}
-        )
-
-        assert result.returncode == 0
-        output = json.loads(result.stdout)
-
-        assert output["action"] == "skip"
-        assert output["check_enabled"] is False
-        assert "prompt" not in output
-
     def test_missing_config_defaults_to_prompt(self, script_path, tmp_path):
         """Should default to prompting if config can't be loaded."""
-        # Create planning dir without session config
         planning_dir = tmp_path / "no_config"
         planning_dir.mkdir()
+        context_file = tmp_path / "ctx-pct"
+
+        env = os.environ.copy()
+        env["DEEP_CONTEXT_FILE"] = str(context_file)
 
         result = subprocess.run(
             [
@@ -144,6 +127,7 @@ class TestCheckContextDecision:
                 "--planning-dir", str(planning_dir),
                 "--upcoming-operation", "Test"
             ],
+            env=env,
             capture_output=True,
             text=True,
             timeout=10,
@@ -152,6 +136,95 @@ class TestCheckContextDecision:
         assert result.returncode == 0
         output = json.loads(result.stdout)
 
-        # Should default to prompting when config is missing
         assert output["action"] == "prompt"
         assert output["check_enabled"] is True
+
+    # --- Context percentage in output ---
+
+    def test_context_pct_included_in_output(self, run_script, planning_dir_with_config):
+        """Should include context_pct field in JSON output."""
+        result = run_script(planning_dir_with_config, "Test", context_pct=72)
+
+        output = json.loads(result.stdout)
+        assert output["context_pct"] == 72
+
+    def test_context_pct_null_when_file_missing(self, run_script, planning_dir_with_config):
+        """Should return context_pct as null when file doesn't exist."""
+        result = run_script(planning_dir_with_config, "Test", context_pct=None)
+
+        output = json.loads(result.stdout)
+        assert output["context_pct"] is None
+
+    def test_prompt_message_shows_percentage(self, run_script, planning_dir_with_config):
+        """Should display context percentage in the prompt message."""
+        result = run_script(planning_dir_with_config, "External LLM Review", context_pct=65)
+
+        output = json.loads(result.stdout)
+        assert "Context usage: 65%" in output["prompt"]["message"]
+
+    def test_prompt_message_shows_unknown_when_missing(self, run_script, planning_dir_with_config):
+        """Should show 'unknown' when context file doesn't exist."""
+        result = run_script(planning_dir_with_config, "Test", context_pct=None)
+
+        output = json.loads(result.stdout)
+        assert "unknown" in output["prompt"]["message"]
+
+    # --- Threshold logic ---
+
+    def test_skips_below_50_pct(self, run_script, planning_dir_with_config):
+        """Should skip prompt when context is below 50%."""
+        result = run_script(planning_dir_with_config, "Test", context_pct=35)
+
+        output = json.loads(result.stdout)
+        assert output["action"] == "skip"
+        assert output["context_pct"] == 35
+
+    def test_prompts_at_50_pct(self, run_script, planning_dir_with_config):
+        """Should prompt at exactly 50%."""
+        result = run_script(planning_dir_with_config, "Test", context_pct=50)
+
+        output = json.loads(result.stdout)
+        assert output["action"] == "prompt"
+        assert output["context_pct"] == 50
+
+    def test_prompts_at_70_pct(self, run_script, planning_dir_with_config):
+        """Should prompt at 70%."""
+        result = run_script(planning_dir_with_config, "Test", context_pct=70)
+
+        output = json.loads(result.stdout)
+        assert output["action"] == "prompt"
+
+    def test_high_context_warning_at_85_pct(self, run_script, planning_dir_with_config):
+        """Should include HIGH warning in prompt at >= 85%."""
+        result = run_script(planning_dir_with_config, "Test", context_pct=90)
+
+        output = json.loads(result.stdout)
+        assert output["action"] == "prompt"
+        assert "HIGH" in output["prompt"]["message"]
+        assert "/clear recommended" in output["prompt"]["message"]
+
+    def test_high_context_overrides_disabled_checks(self, run_script, planning_dir_with_config):
+        """Should still prompt at >= 85% even when checks are disabled."""
+        result = run_script(
+            planning_dir_with_config,
+            "Test",
+            context_pct=90,
+            config_override={"context": {"check_enabled": False}}
+        )
+
+        output = json.loads(result.stdout)
+        assert output["action"] == "prompt"
+        assert "HIGH" in output["prompt"]["message"]
+
+    def test_check_disabled_skips_below_85(self, run_script, planning_dir_with_config):
+        """Should skip when check_enabled is false and context < 85%."""
+        result = run_script(
+            planning_dir_with_config,
+            "Test",
+            context_pct=60,
+            config_override={"context": {"check_enabled": False}}
+        )
+
+        output = json.loads(result.stdout)
+        assert output["action"] == "skip"
+        assert output["check_enabled"] is False
