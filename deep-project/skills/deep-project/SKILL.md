@@ -9,6 +9,24 @@ compatibility: Requires uv (Python 3.11+), git repository recommended
 
 Decomposes vague, high-level project requirements into well-scoped components to then give to /deep-plan for deep planning.
 
+## Auto-Resume Check
+
+**Before anything else, check your context for `DEEP_RESUME_STEP`.**
+
+If `DEEP_RESUME_STEP` is present and `DEEP_PLUGIN` is `deep-project`, this is a resumed session after `/clear`. Do NOT show the intro banner or prompt for a requirements file. Instead:
+
+1. Print:
+```
+════════════════════════════════════════════════════════════════════════════════
+DEEP-PROJECT: Resuming — {DEEP_RESUME_NAME} (step {DEEP_RESUME_STEP})
+════════════════════════════════════════════════════════════════════════════════
+```
+2. The session state path is in `DEEP_SESSION_STATE`. Extract the planning directory (parent of state path).
+3. Find the requirements file from `deep_project_session.json` in the planning directory.
+4. Go directly to **Step D (Run Setup Script)** with that requirements file. The setup script will detect the resume and return the correct `resume_from_step`.
+
+If `DEEP_RESUME_STEP` is NOT in your context, proceed normally below.
+
 ---
 
 ## CRITICAL: First Actions
@@ -163,6 +181,32 @@ See [interview-protocol.md](references/interview-protocol.md) for detailed guida
 - Build understanding incrementally
 
 **Checkpoint:** Write `{planning_dir}/deep_project_interview.md` with full interview transcript.
+
+### Context Check After Interview
+
+The interview is the most token-intensive step. Check context usage:
+
+```bash
+cat /tmp/claude-context-pct 2>/dev/null
+```
+
+**If the file exists:**
+- **≥ 70%**: Present checkpoint — recommend `/clear` before continuing
+- **< 70%**: Proceed to Step 2
+
+**If the file does not exist** (statusline not configured): proceed to Step 2.
+
+When presenting the checkpoint:
+```
+════════════════════════════════════════════════════════════════════════════════
+Interview complete. Context usage: {PCT}%
+
+  1. /clear (Recommended) — auto-resumes at Step 2
+  2. Continue in current session
+════════════════════════════════════════════════════════════════════════════════
+```
+
+Use `AskUserQuestion` to present options. If user picks 1, tell them to type `/clear`.
 
 ---
 
