@@ -75,28 +75,103 @@ Map the selection:
 
 ## Step 3: Custom Category Walkthrough
 
-Present each category one at a time using `AskUserQuestion`. Use the info from the check output's `categories` field.
-
-**For each category (A through F), ask:**
-
-```
-question: "Category {id}: {name}"
-options:
-  - label: "Enable"
-    description: "{description} | Risk: {risk} | {rule_count} rules"
-  - label: "Skip"
-    description: "Do not auto-approve these operations"
-```
+Present each category one at a time using `AskUserQuestion`. **Be explicit about what each rule matches** so the user understands exactly what they're approving. Use the details below for each category's description.
 
 If `fully_configured` is true for a category, note "(already configured)" in the description.
 
-**Default recommendations per category:**
-- A (Reading & Navigation): recommend Enable
-- B (Plugin Scripts): recommend Enable
-- C (Task Management): recommend Enable
-- D (Planning File Writes): recommend Enable
-- E (Git Operations): recommend Skip
-- F (Subagent Launches): recommend Skip
+### Category A: Reading & Navigation (recommend: Enable)
+
+```
+question: "Category A: Reading & Navigation"
+options:
+  - label: "Enable (recommended)"
+    description: |
+      Read/Grep/Glob scoped to your project dir and the plugin cache dir only.
+      Shell commands: ls, pwd, find, cat, head, tail, wc, which.
+      Git reads: status, log, diff, branch, rev-parse, show.
+      Risk: None — all read-only. {rule_count} rules.
+  - label: "Skip"
+    description: "You'll approve every file read and directory listing"
+```
+
+### Category B: Plugin Scripts (recommend: Enable)
+
+```
+question: "Category B: Plugin Scripts"
+options:
+  - label: "Enable (recommended)"
+    description: |
+      NOT a blanket uv/bash/python3 approval.
+      Only approves commands targeting the plugin's own install path:
+        uv run --project <plugin_cache_path>/*
+        uv run <plugin_cache_path>/*
+        bash <plugin_cache_path>/*
+        python3 <plugin_cache_path>/*
+      A random "uv run pytest" or "bash myscript.sh" still requires approval.
+      Risk: Low — only plugin-internal scripts. {rule_count} rules.
+  - label: "Skip"
+    description: "You'll approve every plugin script execution individually"
+```
+
+### Category C: Task Management (recommend: Enable)
+
+```
+question: "Category C: Task Management"
+options:
+  - label: "Enable (recommended)"
+    description: |
+      TaskList, TaskGet, TaskCreate, TaskUpdate, TaskOutput.
+      These manage the workflow checklist — no file or code changes.
+      Risk: None. {rule_count} rules.
+  - label: "Skip"
+    description: "You'll approve every task list operation"
+```
+
+### Category D: Planning File Writes (recommend: Enable)
+
+```
+question: "Category D: Planning File Writes"
+options:
+  - label: "Enable (recommended)"
+    description: |
+      NOT a blanket Write/Edit approval. Only approves specific filename patterns:
+        Write/Edit: claude-*.md (spec, plan, research, interview, TDD)
+        Write: sections/index.md, sections/section-*.md
+        Write: reviews/*.md, snapshot.json
+        Write: deep_plan_config.json, deep_implement_config.json, deep_project_session.json
+      Writing to package.json, .env, or any non-matching file still requires approval.
+      Risk: Medium — writes files, but only plugin-specific name patterns. {rule_count} rules.
+  - label: "Skip"
+    description: "You'll approve every planning file write individually"
+```
+
+### Category E: Git Operations (recommend: Skip)
+
+```
+question: "Category E: Git Operations"
+options:
+  - label: "Enable"
+    description: |
+      git add, git commit, git checkout -b.
+      Commits will happen without prompting you to review them.
+      Risk: Medium — creates commits automatically. {rule_count} rules.
+  - label: "Skip (recommended)"
+    description: "Review each commit before it happens"
+```
+
+### Category F: Subagent Launches (recommend: Skip)
+
+```
+question: "Category F: Subagent Launches"
+options:
+  - label: "Enable"
+    description: |
+      Task tool for section-writer, code-reviewer, Explore, web-search subagents.
+      These launch sub-conversations that do work in parallel.
+      Risk: Low — but can consume additional API credits. {rule_count} rules.
+  - label: "Skip (recommended)"
+    description: "See and approve each subagent before it launches"
+```
 
 Collect enabled categories into a comma-separated tiers string (e.g., `"A,B,C,D,F"`).
 

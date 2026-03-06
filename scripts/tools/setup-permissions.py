@@ -46,14 +46,13 @@ def get_rules(category: str, project_dir: str, plugin_root: str) -> list[str]:
             "Bash(git show*)",
         ],
         "B": [
-            # Plugin script execution via uv
+            # Plugin script execution via uv — scoped to plugin path only
             f"Bash(uv run --project {plugin_root}*)",
             f"Bash(uv run {plugin_root}*)",
-            # Validate env
-            "Bash(bash *validate-env*)",
-            # Context tracking setup
-            "Bash(python3 *setup-context-tracking*)",
-            "Bash(python3 *setup-permissions*)",
+            # Validate env — scoped to plugin path
+            f"Bash(bash {plugin_root}*)",
+            # Context tracking setup — scoped to plugin path
+            f"Bash(python3 {plugin_root}*)",
         ],
         "C": [
             # Task management
@@ -100,7 +99,7 @@ CATEGORY_META = {
     },
     "B": {
         "name": "Plugin Scripts",
-        "description": "All deep-trilogy script execution (uv run, bash validate-env, python3 setup scripts)",
+        "description": "uv run, bash, python3 scoped to plugin install path only (not blanket)",
         "risk": "Low",
         "default_on": True,
     },
