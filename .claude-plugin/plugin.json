@@ -1,7 +1,7 @@
 {
   "name": "deep-trilogy",
   "description": "Combined deep-project, deep-plan, and deep-implement plugin for end-to-end AI-assisted planning and implementation",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "avi8or",
     "url": "https://github.com/avi8or"
