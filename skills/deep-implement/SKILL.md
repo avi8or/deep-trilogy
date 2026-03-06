@@ -264,9 +264,11 @@ git add -u
 
 See [code-review-protocol.md](references/code-review-protocol.md)
 
+**Do NOT use external skills for this step.** Use only the Task tool with the plugin's own `code-reviewer` subagent (`agents/code-reviewer.md`).
+
 1. Create `{state_dir}/code_review/` directory if it doesn't exist
 2. Write staged diff to `{code_review_dir}/section-NN-diff.md`
-3. Launch `code-reviewer` subagent to analyze the diff
+3. Launch `code-reviewer` subagent via Task tool (`subagent_type: "code-reviewer"`) to analyze the diff
 4. Write subagent's review to `{code_review_dir}/section-NN-review.md`
 
 ### Step 7: Code Review Triage and Interview

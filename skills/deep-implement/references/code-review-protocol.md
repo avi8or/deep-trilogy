@@ -65,6 +65,8 @@ If the diff is empty, skip review and proceed to commit.
 
 ### 4. Launch Code Reviewer Subagent
 
+**IMPORTANT:** Do NOT invoke any external skills (e.g., Superpowers `requesting-code-review`) for this step. Use ONLY the Task tool with `subagent_type: "code-reviewer"` as defined in `agents/code-reviewer.md`. This is a plugin-internal subagent, not a skill invocation.
+
 Launch the `code-reviewer` subagent with both the section plan and the diff:
 
 ```
