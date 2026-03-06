@@ -1,0 +1,11 @@
+{
+  "name": "deep-trilogy",
+  "description": "Combined deep-project, deep-plan, and deep-implement plugin for end-to-end AI-assisted planning and implementation",
+  "version": "0.1.0",
+  "author": {
+    "name": "avi8or",
+    "url": "https://github.com/avi8or"
+  },
+  "license": "MIT",
+  "keywords": ["planning", "tdd", "implementation", "decomposition", "llm-review"]
+}

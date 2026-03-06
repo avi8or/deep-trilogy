@@ -1,0 +1,32 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "avi8or-plugins",
+  "description": "Combined deep-project, deep-plan, and deep-implement plugin",
+  "version": "1.0.0",
+  "owner": {
+    "name": "avi8or",
+    "url": "https://github.com/avi8or"
+  },
+  "plugins": [
+    {
+      "name": "deep-trilogy",
+      "description": "Combined deep-project, deep-plan, and deep-implement for end-to-end AI-assisted planning and implementation",
+      "version": "0.1.0",
+      "author": {
+        "name": "avi8or",
+        "url": "https://github.com/avi8or"
+      },
+      "source": "./",
+      "category": "development",
+      "homepage": "https://github.com/avi8or/deep-trilogy",
+      "tags": [
+        "planning",
+        "tdd",
+        "implementation",
+        "decomposition",
+        "llm-review",
+        "code-review"
+      ]
+    }
+  ]
+}

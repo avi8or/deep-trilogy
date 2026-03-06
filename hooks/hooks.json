@@ -1,0 +1,25 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project ${CLAUDE_PLUGIN_ROOT}/deep-plan ${CLAUDE_PLUGIN_ROOT}/deep-plan/scripts/hooks/capture-session-id.py"
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "deep-plan:section-writer",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project ${CLAUDE_PLUGIN_ROOT}/deep-plan ${CLAUDE_PLUGIN_ROOT}/deep-plan/scripts/hooks/write-section-on-stop.py"
+          }
+        ]
+      }
+    ]
+  }
+}
