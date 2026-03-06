@@ -9,6 +9,27 @@ compatibility: Requires uv (Python 3.11+), Gemini or OpenAI API key for external
 
 Orchestrates a multi-step planning process: Research → Interview → External LLM Review → TDD Plan
 
+## Auto-Resume Check
+
+**Before anything else, check your context for `DEEP_RESUME_STEP`.**
+
+If `DEEP_RESUME_STEP` is present (injected by the SessionStart hook from a snapshot), this is a resumed session after `/clear`. Do NOT show the intro banner or prompt for a spec file. Instead:
+
+1. Print:
+```
+═══════════════════════════════════════════════════════════════
+DEEP-PLAN: Resuming — {DEEP_RESUME_NAME} (step {DEEP_RESUME_STEP})
+Progress: {DEEP_PROGRESS}
+═══════════════════════════════════════════════════════════════
+```
+2. The snapshot path is in `DEEP_SNAPSHOT`. Extract the planning directory (parent of snapshot path).
+3. Find the spec file: look for `spec.md` or `*.spec.md` in the planning directory.
+4. Go directly to **Step 4 (Setup Planning Session)** with that spec file path. The setup script will detect the resume and skip completed work.
+
+If `DEEP_RESUME_STEP` is NOT in your context, proceed normally below.
+
+---
+
 ## CRITICAL: First Actions
 
 **BEFORE using any other tools**, do these in order:
@@ -43,7 +64,7 @@ The SessionStart hook injects `DEEP_PLUGIN_ROOT=<path>` into your context. Look 
 
 **Otherwise**, if `DEEP_PLUGIN_ROOT` is in your context, run validate-env.sh directly:
 ```bash
-bash <DEEP_PLUGIN_ROOT value>/deep-plan/scripts/checks/validate-env.sh
+bash <DEEP_PLUGIN_ROOT value>/scripts/checks/validate-env.sh
 ```
 
 **Only if `DEEP_PLUGIN_ROOT` is NOT in your context** (hook didn't run), fall back to search:
@@ -109,7 +130,7 @@ If a valid @file was provided (path ends with `.md`), proceed to Step 4.
 If NO @file was provided OR the path doesn't end with `.md`, run smart path detection:
 
 ```bash
-uv run {plugin_root}/deep-plan/scripts/tools/detect_specs.py --search-dir "$(pwd)"
+uv run {plugin_root}/scripts/tools/detect_specs.py --search-dir "$(pwd)"
 ```
 
 Parse the JSON output. If specs are found, present them:
@@ -169,9 +190,9 @@ the session started.
 
 Run setup-planning-session.py with the spec file, plugin root, review mode, and session ID:
 ```bash
-uv run {plugin_root}/deep-plan/scripts/checks/setup-planning-session.py \
+uv run {plugin_root}/scripts/checks/setup-planning-session.py \
   --file "<file_path>" \
-  --plugin-root "{plugin_root}/deep-plan" \
+  --plugin-root "{plugin_root}" \
   --review-mode "{review_mode}" \
   --session-id "{DEEP_SESSION_ID}"
 ```
@@ -335,7 +356,7 @@ Write for an unfamiliar reader. The plan must be fully self-contained - an engin
 
 Run:
 ```bash
-uv run {plugin_root}/deep-plan/scripts/checks/check-context-decision.py \
+uv run {plugin_root}/scripts/checks/check-context-decision.py \
   --planning-dir "<planning_dir>" \
   --upcoming-operation "External LLM Review"
 ```
@@ -343,7 +364,7 @@ uv run {plugin_root}/deep-plan/scripts/checks/check-context-decision.py \
 Read `{plugin_root}/skills/deep-plan/references/context-check.md` for handling the output.
 
 - If user chooses "Continue", proceed to step 13
-- If user chooses "/clear + re-run", they will restart with fresh context (file-based recovery resumes here)
+- If user chooses "/clear", the snapshot is already saved — next session auto-resumes via the SessionStart hook
 
 ### 13. External LLM Review
 
@@ -394,7 +415,7 @@ Create `claude-plan-tdd.md` mirroring the plan structure with test stubs for eac
 
 Run:
 ```bash
-uv run {plugin_root}/deep-plan/scripts/checks/check-context-decision.py \
+uv run {plugin_root}/scripts/checks/check-context-decision.py \
   --planning-dir "<planning_dir>" \
   --upcoming-operation "Section splitting"
 ```
@@ -402,7 +423,7 @@ uv run {plugin_root}/deep-plan/scripts/checks/check-context-decision.py \
 Read `{plugin_root}/skills/deep-plan/references/context-check.md` for handling the output.
 
 - If user chooses "Continue", proceed to step 18
-- If user chooses "/clear + re-run", they will restart with fresh context (file-based recovery resumes here)
+- If user chooses "/clear", the snapshot is already saved — next session auto-resumes via the SessionStart hook
 
 ### 18. Create Section Index
 
@@ -418,7 +439,7 @@ Write `index.md` before proceeding to section file creation.
 
 Run generate-section-tasks.py to write section tasks directly to disk:
 ```bash
-uv run {plugin_root}/deep-plan/scripts/checks/generate-section-tasks.py \
+uv run {plugin_root}/scripts/checks/generate-section-tasks.py \
   --planning-dir "<planning_dir>" \
   --session-id "{DEEP_SESSION_ID}"
 ```

@@ -9,6 +9,27 @@ compatibility: Requires uv (Python 3.11+), git repository recommended
 
 Implements code from /deep-plan section files with integrated review and git workflow.
 
+## Auto-Resume Check
+
+**Before anything else, check your context for `DEEP_RESUME_STEP`.**
+
+If `DEEP_RESUME_STEP` is present (injected by the SessionStart hook from a snapshot), this is a resumed session after `/clear`. Do NOT show the intro banner or prompt for a sections directory. Instead:
+
+1. Print:
+```
+═══════════════════════════════════════════════════════════════
+DEEP-IMPLEMENT: Resuming — {DEEP_RESUME_NAME} (step {DEEP_RESUME_STEP})
+Progress: {DEEP_PROGRESS}
+═══════════════════════════════════════════════════════════════
+```
+2. The snapshot path is in `DEEP_SNAPSHOT`. Extract the state directory (parent of snapshot path).
+3. Read `deep_implement_config.json` from the state directory to get `sections_dir`.
+4. Go directly to **Step D (Setup Implementation Session)** with that sections directory. The setup script will detect the resume and skip completed sections.
+
+If `DEEP_RESUME_STEP` is NOT in your context, proceed normally below.
+
+---
+
 ## CRITICAL: First Actions
 
 **BEFORE using any other tools**, do these in order:
@@ -60,7 +81,7 @@ The sections directory must contain:
 The SessionStart hook injects `DEEP_PLUGIN_ROOT=<path>` into your context. Look for it now — it appears alongside `DEEP_SESSION_ID` in your context from session startup.
 
 **If `DEEP_PLUGIN_ROOT` is in your context**, use it directly as `plugin_root`. The setup script is at:
-`<DEEP_PLUGIN_ROOT value>/scripts/checks/setup_implementation_session.py`
+`<DEEP_PLUGIN_ROOT value>/deep-implement/scripts/checks/setup_implementation_session.py`
 
 **Only if `DEEP_PLUGIN_ROOT` is NOT in your context** (hook didn't run), fall back to search:
 ```bash
@@ -111,7 +132,7 @@ Run the setup script with discovered paths:
 uv run {script_path} \
   --sections-dir "{sections_dir}" \
   --target-dir "{target_dir}" \
-  --plugin-root "{plugin_root}" \
+  --plugin-root "{plugin_root}/deep-implement" \
   --session-id "{DEEP_SESSION_ID}"
 ```
 
@@ -264,9 +285,11 @@ git add -u
 
 See [code-review-protocol.md](references/code-review-protocol.md)
 
+**Do NOT use external skills for this step.** Use only the Task tool with the plugin's own `code-reviewer` subagent (`agents/code-reviewer.md`).
+
 1. Create `{state_dir}/code_review/` directory if it doesn't exist
 2. Write staged diff to `{code_review_dir}/section-NN-diff.md`
-3. Launch `code-reviewer` subagent to analyze the diff
+3. Launch `code-reviewer` subagent via Task tool (`subagent_type: "code-reviewer"`) to analyze the diff
 4. Write subagent's review to `{code_review_dir}/section-NN-review.md`
 
 ### Step 7: Code Review Triage and Interview
@@ -350,7 +373,7 @@ EOF
 After successful commit, update the session config:
 
 ```bash
-uv run {plugin_root}/scripts/tools/update_section_state.py \
+uv run {plugin_root}/deep-implement/scripts/tools/update_section_state.py \
     --state-dir "{state_dir}" \
     --section "{section_name}" \
     --commit-hash "{commit_hash}"
@@ -364,11 +387,26 @@ Update task: `TaskUpdate(taskId=X, status="completed")`
 
 ### Step 13: Context Check (Every 2nd Section)
 
-**Only prompt after sections 02, 04, 06, etc.** (every 2nd section).
+**Context-aware checkpoint logic:**
 
-If this is NOT a 2nd section, skip directly to Step 14.
+After EVERY section commit, check context usage by reading `/tmp/claude-context-pct`:
 
-If this IS a 2nd section (02, 04, 06, ...):
+```bash
+cat /tmp/claude-context-pct 2>/dev/null
+```
+
+This file is written by the statusline (see `scripts/tools/write-context-pct.sh` for setup). It returns a number 0-100 representing context window usage percentage.
+
+**If the file exists and contains a valid number:**
+- **≥ 70%**: ALWAYS present the checkpoint prompt (regardless of section number)
+- **50-69%**: Present the checkpoint only on even sections (02, 04, 06, ...)
+- **< 50%**: Skip the checkpoint, proceed directly to Step 14
+
+**If the file does not exist or is empty** (statusline not configured):
+- Fall back to prompting on every even section (02, 04, 06, ...) as before
+- On first occurrence, mention: "For smarter context management, configure the context monitor — see `scripts/tools/write-context-pct.sh` in the plugin directory."
+
+When presenting the checkpoint:
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -377,20 +415,20 @@ Section NN complete and committed.
 
 Completed: {M}/{N} sections
 Next: section-{NN+1}-{name}
+Context usage: {PCT}%
 
 Context Management Options:
-  1. /clear + re-run /deep-implement (Recommended)
+  1. /clear (Recommended)
      - Fresh context with full instructions
-     - Progress preserved via file-based recovery
+     - Auto-resumes on next session — no need to re-type the command
 
   2. Continue in current session
-     - Auto-compact triggers at ~95% if needed
-     - May lose some instruction detail after compaction
-
-Type "continue" or run /clear and re-invoke /deep-implement @{sections_dir}/.
+     - May lose some instruction detail if auto-compact triggers
 ```
 
-Wait for user response. If they say "continue", proceed to Step 14.
+Use `AskUserQuestion` to present these options. If user picks option 1, tell them to type `/clear`. The snapshot is already saved — next session auto-resumes via the SessionStart hook. If user picks option 2 or says "continue", proceed to Step 14.
+
+**If context is ≥ 85%, strongly recommend option 1** — auto-compact is imminent and will cause instruction loss.
 
 ### Step 14: Loop
 
@@ -460,9 +498,9 @@ Please review the section file.
 
 ## Context Recovery
 
-**After `/clear` + re-run `/deep-implement`:**
+**After `/clear` (auto-resume):**
 
-The setup script detects completed sections via `deep_implement_config.json` and marks their tasks complete. You'll resume from the next pending section with fresh instructions.
+The SessionStart hook discovers the snapshot and injects `DEEP_RESUME_STEP` into your context. The Auto-Resume Check at the top of this skill picks it up and goes directly to the setup step. The setup script detects completed sections via `deep_implement_config.json` and marks their tasks complete. You resume from the next pending section with fresh instructions — no re-typing needed.
 
 **After compaction (if user chose "continue"):**
 

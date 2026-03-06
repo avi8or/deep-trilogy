@@ -9,6 +9,24 @@ compatibility: Requires uv (Python 3.11+), git repository recommended
 
 Decomposes vague, high-level project requirements into well-scoped components to then give to /deep-plan for deep planning.
 
+## Auto-Resume Check
+
+**Before anything else, check your context for `DEEP_RESUME_STEP`.**
+
+If `DEEP_RESUME_STEP` is present and `DEEP_PLUGIN` is `deep-project`, this is a resumed session after `/clear`. Do NOT show the intro banner or prompt for a requirements file. Instead:
+
+1. Print:
+```
+════════════════════════════════════════════════════════════════════════════════
+DEEP-PROJECT: Resuming — {DEEP_RESUME_NAME} (step {DEEP_RESUME_STEP})
+════════════════════════════════════════════════════════════════════════════════
+```
+2. The session state path is in `DEEP_SESSION_STATE`. Extract the planning directory (parent of state path).
+3. Find the requirements file from `deep_project_session.json` in the planning directory.
+4. Go directly to **Step D (Run Setup Script)** with that requirements file. The setup script will detect the resume and return the correct `resume_from_step`.
+
+If `DEEP_RESUME_STEP` is NOT in your context, proceed normally below.
+
 ---
 
 ## CRITICAL: First Actions
@@ -61,7 +79,7 @@ The requirements file should contain:
 The SessionStart hook injects `DEEP_PLUGIN_ROOT=<path>` into your context. Look for it now — it appears alongside `DEEP_SESSION_ID` in your context from session startup.
 
 **If `DEEP_PLUGIN_ROOT` is in your context**, use it directly as `plugin_root`. The setup script is at:
-`<DEEP_PLUGIN_ROOT value>/deep-project/scripts/checks/setup-session.py`
+`<DEEP_PLUGIN_ROOT value>/scripts/checks/setup-session.py`
 
 **Only if `DEEP_PLUGIN_ROOT` is NOT in your context** (hook didn't run), fall back to search:
 ```bash
@@ -77,11 +95,11 @@ If not found: `find ~ -name "setup-session.py" -path "*/scripts/checks/*" -path 
 
 Run the setup script with the requirements file:
 ```bash
-uv run {script_path} --file "{requirements_file_path}" --plugin-root "{plugin_root}/deep-project" --session-id "{DEEP_SESSION_ID}"
+uv run {script_path} --file "{requirements_file_path}" --plugin-root "{plugin_root}" --session-id "{DEEP_SESSION_ID}"
 ```
 
 Where:
-- `{plugin_root}` is the directory two levels up from the script (e.g., if script is at `/path/to/deep_project/scripts/checks/setup-session.py`, plugin_root is `/path/to/deep_project`)
+- `{plugin_root}` is the directory two levels up from the script (e.g., if script is at `/path/to/deep-project/scripts/checks/setup-session.py`, plugin_root is `/path/to/deep-project`)
 - `{DEEP_SESSION_ID}` is from your context (if available)
 
 **IMPORTANT:** If `DEEP_SESSION_ID` is in your context, you MUST pass it via `--session-id`. This ensures tasks work correctly after `/clear reset` commands. If it's not in your context, omit `--session-id` (fallback to env var).
@@ -164,6 +182,32 @@ See [interview-protocol.md](references/interview-protocol.md) for detailed guida
 
 **Checkpoint:** Write `{planning_dir}/deep_project_interview.md` with full interview transcript.
 
+### Context Check After Interview
+
+The interview is the most token-intensive step. Check context usage:
+
+```bash
+cat /tmp/claude-context-pct 2>/dev/null
+```
+
+**If the file exists:**
+- **≥ 70%**: Present checkpoint — recommend `/clear` before continuing
+- **< 70%**: Proceed to Step 2
+
+**If the file does not exist** (statusline not configured): proceed to Step 2.
+
+When presenting the checkpoint:
+```
+════════════════════════════════════════════════════════════════════════════════
+Interview complete. Context usage: {PCT}%
+
+  1. /clear (Recommended) — auto-resumes at Step 2
+  2. Continue in current session
+════════════════════════════════════════════════════════════════════════════════
+```
+
+Use `AskUserQuestion` to present options. If user picks 1, tell them to type `/clear`.
+
 ---
 
 ## Step 2: Split Analysis
@@ -213,7 +257,7 @@ See [project-manifest.md](references/project-manifest.md) for manifest format.
 
 Run the directory creation script:
 ```bash
-uv run {plugin_root}/deep-project/scripts/checks/create-split-dirs.py --planning-dir "{planning_dir}"
+uv run {plugin_root}/scripts/checks/create-split-dirs.py --planning-dir "{planning_dir}"
 ```
 
 This script:
