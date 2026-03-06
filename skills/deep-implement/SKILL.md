@@ -387,11 +387,21 @@ Update task: `TaskUpdate(taskId=X, status="completed")`
 
 ### Step 13: Context Check (Every 2nd Section)
 
-**Only prompt after sections 02, 04, 06, etc.** (every 2nd section).
+**Context-aware checkpoint logic:**
 
-If this is NOT a 2nd section, skip directly to Step 14.
+After EVERY section commit, check context usage by reading `/tmp/claude-context-pct` (written by the statusline):
 
-If this IS a 2nd section (02, 04, 06, ...):
+```bash
+cat /tmp/claude-context-pct 2>/dev/null
+```
+
+This returns a number 0-100 representing context window usage percentage.
+
+- **≥ 70%**: ALWAYS present the checkpoint prompt (regardless of section number)
+- **50-69%**: Present the checkpoint only on even sections (02, 04, 06, ...)
+- **< 50%**: Skip the checkpoint, proceed directly to Step 14
+
+When presenting the checkpoint:
 
 ```
 ═══════════════════════════════════════════════════════════════
@@ -400,6 +410,7 @@ Section NN complete and committed.
 
 Completed: {M}/{N} sections
 Next: section-{NN+1}-{name}
+Context usage: {PCT}%
 
 Context Management Options:
   1. /clear (Recommended)
@@ -407,11 +418,12 @@ Context Management Options:
      - Auto-resumes on next session — no need to re-type the command
 
   2. Continue in current session
-     - Auto-compact triggers at ~95% if needed
-     - May lose some instruction detail after compaction
+     - May lose some instruction detail if auto-compact triggers
 ```
 
 Use `AskUserQuestion` to present these options. If user picks option 1, tell them to type `/clear`. The snapshot is already saved — next session auto-resumes via the SessionStart hook. If user picks option 2 or says "continue", proceed to Step 14.
+
+**If context is ≥ 85%, strongly recommend option 1** — auto-compact is imminent and will cause instruction loss.
 
 ### Step 14: Loop
 

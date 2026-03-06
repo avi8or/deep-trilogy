@@ -1,72 +1,66 @@
 # Context Check Protocol
 
-Before critical operations, optionally prompt the user about context management.
+Before critical operations, check context usage and optionally prompt the user.
 
 ## Key Insight
 
 **File-based recovery is the real resilience mechanism, not compaction.**
 
-- `scan_planning_files()` detects what's been created
-- `infer_resume_step()` determines where to resume
+- Snapshots persist workflow state across `/clear`
+- SessionStart hook injects resume info automatically
 - SKILL.md is freshly loaded on re-run
 - Tasks get reconciled from file state
 
-Compaction keeps the session alive but may cause instruction loss. `/clear` + re-run gives a clean slate with full instructions.
+Compaction keeps the session alive but may cause instruction loss. `/clear` gives a clean slate with auto-resume.
 
-## Quick Check: Context Task
+## Checking Context Usage
 
-After step 4 (setup-planning-session), look for the context task:
-```
-review_mode=external_llm (or other value)
-```
-
-Check session config for `context_check_enabled`. If `false`, skip context checks entirely.
-
-## Running the Script
-
-If context checks are enabled (or you're unsure), run:
+Read the context percentage from the statusline's shared file:
 
 ```bash
-uv run {plugin_root}/scripts/checks/check-context-decision.py \
-  --planning-dir "<planning_dir>" \
-  --upcoming-operation "<operation_name>"
+cat /tmp/claude-context-pct 2>/dev/null
 ```
 
-## Handling Script Output
+This returns 0-100. If the file doesn't exist (statusline not configured), default to presenting the prompt.
 
-| action | What to do |
-|--------|------------|
-| `skip` | Prompts disabled - proceed immediately |
-| `prompt` | Use AskUserQuestion with `prompt.message` and `prompt.options` |
+### Decision Thresholds
 
-### Option Handling
+| Context % | Action |
+|-----------|--------|
+| ≥ 85% | **Always prompt, strongly recommend /clear** — auto-compact is imminent |
+| 70-84% | **Always prompt** at any checkpoint |
+| 50-69% | Prompt only at scheduled checkpoints (before External LLM Review, before Section Split) |
+| < 50% | Skip the prompt, proceed immediately |
+
+### Prompt Format
+
+When prompting, include the context percentage:
+
+```
+Context check before: {operation} (context: {PCT}%)
+```
+
+Use `AskUserQuestion` with these options:
+
+1. **"/clear"** — Fresh context, auto-resumes on next session
+2. **"Continue"** — Proceed in current session
+
+## Option Handling
 
 **If user chooses "Continue":**
 - Proceed with the operation
 - Auto-compact will trigger at ~95% context if needed
-- If Claude gets confused after auto-compact, user can `/clear` and re-run
 
 **If user chooses "/clear":**
 - User runs `/clear` — that's it
-- The snapshot is already written, so the next session's SessionStart hook will inject `DEEP_RESUME_STEP` and the skill auto-resumes
+- The snapshot is already written, so the next session auto-resumes
 - No need to re-type the /deep-plan command
-
-## Trade-offs Explained
-
-| Option | Benefit | Trade-off |
-|--------|---------|-----------|
-| Continue | No interruption | May hit auto-compact later |
-| /clear + re-run | Fresh context, full instructions | Loses conversation history |
-
-**Why we don't recommend manual /compact:**
-- Same instruction-loss risk as auto-compact
-- No additional benefit over letting auto-compact happen naturally
-- If you're going to interrupt, `/clear` + re-run is cleaner
 
 ## When to Run Context Checks
 
 - Before External LLM Review (upcoming operation: "External LLM Review")
 - Before Section Split (upcoming operation: "Section splitting")
+- Any time context ≥ 70% at a natural pause point
 
 ## Configuration
 
@@ -79,4 +73,4 @@ In `config.json`:
 }
 ```
 
-Set `check_enabled` to `false` to skip all context prompts.
+Set `check_enabled` to `false` to skip all context prompts (context % checks still apply at ≥ 85%).
