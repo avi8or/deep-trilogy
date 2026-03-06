@@ -81,94 +81,192 @@ If `fully_configured` is true for a category, note "(already configured)" in the
 
 ### Category A: Reading & Navigation (recommend: Enable)
 
+**Before presenting, show the user these examples:**
+
 ```
-question: "Category A: Reading & Navigation"
+Category A: Reading & Navigation
+
+  Auto-approved:
+    ✓ Read("/Users/you/Projects/my-app/src/index.ts")          — project file
+    ✓ Read("~/.claude/plugins/cache/avi8or-plugins/.../SKILL.md") — plugin file
+    ✓ Grep("TODO", "/Users/you/Projects/my-app/**")            — search project
+    ✓ git status, git log, git diff                             — git reads
+    ✓ ls, pwd, find, cat, head, wc, which                      — shell reads
+
+  Still requires approval:
+    ✗ Read("/Users/you/Documents/taxes.pdf")                    — outside project
+    ✗ Read("/etc/passwd")                                       — system file
+
+  Risk: None — all read-only operations. {rule_count} rules.
+```
+
+Use `AskUserQuestion`:
+```
+question: "Enable Category A: Reading & Navigation?"
 options:
   - label: "Enable (recommended)"
-    description: |
-      Read/Grep/Glob scoped to your project dir and the plugin cache dir only.
-      Shell commands: ls, pwd, find, cat, head, tail, wc, which.
-      Git reads: status, log, diff, branch, rev-parse, show.
-      Risk: None — all read-only. {rule_count} rules.
+    description: "Read/search scoped to project dir + plugin cache only"
   - label: "Skip"
-    description: "You'll approve every file read and directory listing"
+    description: "Approve every file read and directory listing individually"
 ```
 
 ### Category B: Plugin Scripts (recommend: Enable)
 
+**Before presenting, show the user these examples:**
+
 ```
-question: "Category B: Plugin Scripts"
+Category B: Plugin Scripts
+
+  Auto-approved (only commands targeting the plugin's install path):
+    ✓ uv run --project ~/.claude/plugins/.../deep-plan setup-planning-session.py
+    ✓ uv run ~/.claude/plugins/.../scripts/checks/check-context-decision.py
+    ✓ bash ~/.claude/plugins/.../scripts/checks/validate-env.sh
+    ✓ python3 ~/.claude/plugins/.../scripts/tools/setup-permissions.py
+
+  Still requires approval:
+    ✗ uv run pytest                              — not targeting plugin path
+    ✗ bash myscript.sh                           — not targeting plugin path
+    ✗ python3 my_tool.py                         — not targeting plugin path
+    ✗ uv run --project ./my-project some_cmd     — different project
+
+  Risk: Low — only plugin-internal scripts. {rule_count} rules.
+```
+
+Use `AskUserQuestion`:
+```
+question: "Enable Category B: Plugin Scripts?"
 options:
   - label: "Enable (recommended)"
-    description: |
-      NOT a blanket uv/bash/python3 approval.
-      Only approves commands targeting the plugin's own install path:
-        uv run --project <plugin_cache_path>/*
-        uv run <plugin_cache_path>/*
-        bash <plugin_cache_path>/*
-        python3 <plugin_cache_path>/*
-      A random "uv run pytest" or "bash myscript.sh" still requires approval.
-      Risk: Low — only plugin-internal scripts. {rule_count} rules.
+    description: "Path-scoped to plugin install dir only — not a blanket uv/bash/python3 approval"
   - label: "Skip"
-    description: "You'll approve every plugin script execution individually"
+    description: "Approve every plugin script execution individually"
 ```
 
 ### Category C: Task Management (recommend: Enable)
 
+**Before presenting, show the user these examples:**
+
 ```
-question: "Category C: Task Management"
+Category C: Task Management
+
+  Auto-approved:
+    ✓ TaskList                     — view workflow checklist
+    ✓ TaskGet(taskId="abc123")     — read a specific task
+    ✓ TaskCreate(subject="...")    — add a workflow step
+    ✓ TaskUpdate(status="done")    — mark step complete
+    ✓ TaskOutput(taskId="abc123")  — read subagent output
+
+  These do NOT touch files, code, or git — they only manage
+  the internal workflow task list.
+
+  Risk: None. {rule_count} rules.
+```
+
+Use `AskUserQuestion`:
+```
+question: "Enable Category C: Task Management?"
 options:
   - label: "Enable (recommended)"
-    description: |
-      TaskList, TaskGet, TaskCreate, TaskUpdate, TaskOutput.
-      These manage the workflow checklist — no file or code changes.
-      Risk: None. {rule_count} rules.
+    description: "Workflow checklist only — no file or code changes"
   - label: "Skip"
-    description: "You'll approve every task list operation"
+    description: "Approve every task list operation individually"
 ```
 
 ### Category D: Planning File Writes (recommend: Enable)
 
+**Before presenting, show the user these examples:**
+
 ```
-question: "Category D: Planning File Writes"
+Category D: Planning File Writes
+
+  Auto-approved (filename patterns only):
+    ✓ Write("planning/claude-spec.md")              — planning spec
+    ✓ Write("planning/claude-plan.md")              — implementation plan
+    ✓ Write("planning/claude-research.md")          — research notes
+    ✓ Write("planning/claude-interview.md")         — interview transcript
+    ✓ Write("planning/claude-plan-tdd.md")          — TDD plan
+    ✓ Edit("planning/claude-plan.md")               — update plan
+    ✓ Write("planning/sections/index.md")           — section manifest
+    ✓ Write("planning/sections/section-01-setup.md") — section file
+    ✓ Write("planning/reviews/gemini-review.md")    — LLM review
+    ✓ Write("planning/snapshot.json")               — session resume data
+    ✓ Write("planning/deep_plan_config.json")       — session config
+
+  Still requires approval:
+    ✗ Write("src/index.ts")             — not a plugin filename pattern
+    ✗ Write("package.json")             — not a plugin filename pattern
+    ✗ Write(".env")                     — not a plugin filename pattern
+    ✗ Edit("README.md")                — not a claude-*.md pattern
+    ✗ Write("my-notes.md")             — doesn't start with "claude-"
+
+  Risk: Medium — writes files, but only plugin-specific name patterns. {rule_count} rules.
+```
+
+Use `AskUserQuestion`:
+```
+question: "Enable Category D: Planning File Writes?"
 options:
   - label: "Enable (recommended)"
-    description: |
-      NOT a blanket Write/Edit approval. Only approves specific filename patterns:
-        Write/Edit: claude-*.md (spec, plan, research, interview, TDD)
-        Write: sections/index.md, sections/section-*.md
-        Write: reviews/*.md, snapshot.json
-        Write: deep_plan_config.json, deep_implement_config.json, deep_project_session.json
-      Writing to package.json, .env, or any non-matching file still requires approval.
-      Risk: Medium — writes files, but only plugin-specific name patterns. {rule_count} rules.
+    description: "Only claude-*.md, sections/*, reviews/*, snapshot.json, and config files"
   - label: "Skip"
-    description: "You'll approve every planning file write individually"
+    description: "Approve every planning file write individually"
 ```
 
 ### Category E: Git Operations (recommend: Skip)
 
+**Before presenting, show the user these examples:**
+
 ```
-question: "Category E: Git Operations"
+Category E: Git Operations
+
+  Auto-approved:
+    ✓ git add src/index.ts
+    ✓ git commit -m "Add feature X"
+    ✓ git checkout -b feature/my-branch
+
+  What this means:
+    Commits happen automatically as part of the /deep-implement workflow.
+    You will NOT see or approve commit messages before they're created.
+
+  Risk: Medium — creates commits without review. {rule_count} rules.
+```
+
+Use `AskUserQuestion`:
+```
+question: "Enable Category E: Git Operations?"
 options:
   - label: "Enable"
-    description: |
-      git add, git commit, git checkout -b.
-      Commits will happen without prompting you to review them.
-      Risk: Medium — creates commits automatically. {rule_count} rules.
+    description: "git add, commit, checkout -b run without prompting"
   - label: "Skip (recommended)"
     description: "Review each commit before it happens"
 ```
 
 ### Category F: Subagent Launches (recommend: Skip)
 
+**Before presenting, show the user these examples:**
+
 ```
-question: "Category F: Subagent Launches"
+Category F: Subagent Launches
+
+  Auto-approved:
+    ✓ Task(subagent_type="section-writer")   — writes section plan files
+    ✓ Task(subagent_type="code-reviewer")    — reviews implementation diffs
+    ✓ Task(subagent_type="Explore")          — researches your codebase
+    ✓ Task(subagent_type="web-search")       — researches web for context
+
+  What this means:
+    Subagents run as separate Claude conversations in parallel.
+    Each one uses API credits. A /deep-plan run may launch 5-15 subagents.
+
+  Risk: Low — but each subagent consumes API credits. {rule_count} rules.
+```
+
+Use `AskUserQuestion`:
+```
+question: "Enable Category F: Subagent Launches?"
 options:
   - label: "Enable"
-    description: |
-      Task tool for section-writer, code-reviewer, Explore, web-search subagents.
-      These launch sub-conversations that do work in parallel.
-      Risk: Low — but can consume additional API credits. {rule_count} rules.
+    description: "Subagents launch automatically for parallel work"
   - label: "Skip (recommended)"
     description: "See and approve each subagent before it launches"
 ```
