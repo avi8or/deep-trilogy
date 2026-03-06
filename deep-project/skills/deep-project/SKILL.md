@@ -81,7 +81,7 @@ uv run {script_path} --file "{requirements_file_path}" --plugin-root "{plugin_ro
 ```
 
 Where:
-- `{plugin_root}` is the directory two levels up from the script (e.g., if script is at `/path/to/deep_project/scripts/checks/setup-session.py`, plugin_root is `/path/to/deep_project`)
+- `{plugin_root}` is the directory two levels up from the script (e.g., if script is at `/path/to/deep-project/scripts/checks/setup-session.py`, plugin_root is `/path/to/deep-project`)
 - `{DEEP_SESSION_ID}` is from your context (if available)
 
 **IMPORTANT:** If `DEEP_SESSION_ID` is in your context, you MUST pass it via `--session-id`. This ensures tasks work correctly after `/clear reset` commands. If it's not in your context, omit `--session-id` (fallback to env var).

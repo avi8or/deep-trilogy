@@ -76,7 +76,7 @@ class TestCaptureSessionIdHook:
 
         assert returncode == 0
         env_content = env_file.read_text()
-        assert "DEEP_SESSION_ID=test-session-123" in env_content
+        assert 'DEEP_SESSION_ID="test-session-123"' in env_content
 
     def test_invalid_json_succeeds_silently(self):
         """Should return 0 even with invalid JSON input."""
@@ -95,7 +95,7 @@ class TestCaptureSessionIdHook:
     def test_skips_duplicate_session_id_in_env_file(self, tmp_path):
         """Should not write duplicate session_id to env file."""
         env_file = tmp_path / "claude_env"
-        env_file.write_text("export DEEP_SESSION_ID=test-session-123\n")
+        env_file.write_text('export DEEP_SESSION_ID="test-session-123"\n')
 
         payload = {"session_id": "test-session-123"}
 
@@ -103,7 +103,7 @@ class TestCaptureSessionIdHook:
 
         # Should not have duplicate
         env_content = env_file.read_text()
-        assert env_content.count("DEEP_SESSION_ID=test-session-123") == 1
+        assert env_content.count('DEEP_SESSION_ID="test-session-123"') == 1
 
     def test_missing_session_id_succeeds(self):
         """Should return 0 when payload has no session_id."""
@@ -128,7 +128,7 @@ class TestCaptureSessionIdHook:
         run_hook(payload, env={"CLAUDE_ENV_FILE": str(env_file)})
 
         env_content = env_file.read_text()
-        assert "CLAUDE_TRANSCRIPT_PATH=/path/to/transcript.md" in env_content
+        assert 'CLAUDE_TRANSCRIPT_PATH="/path/to/transcript.md"' in env_content
 
     def test_skips_output_when_deep_session_id_matches(self):
         """Should not output when DEEP_SESSION_ID already matches session_id."""
@@ -153,6 +153,20 @@ class TestCaptureSessionIdHook:
         assert returncode == 0
         output = json.loads(stdout)
         assert output["hookSpecificOutput"]["additionalContext"] == "DEEP_SESSION_ID=new-session-456"
+
+    def test_values_with_spaces_are_correctly_quoted(self, tmp_path):
+        """Values containing spaces should be correctly quoted in export statements."""
+        env_file = tmp_path / "claude_env"
+        env_file.write_text("")
+
+        payload = {
+            "session_id": "test-session-123",
+            "transcript_path": "/path/to/my transcript.md",
+        }
+        run_hook(payload, env={"CLAUDE_ENV_FILE": str(env_file)})
+
+        env_content = env_file.read_text()
+        assert 'export CLAUDE_TRANSCRIPT_PATH="/path/to/my transcript.md"' in env_content
 
     def test_outputs_when_deep_session_id_not_set(self):
         """Should output when DEEP_SESSION_ID is not set."""
