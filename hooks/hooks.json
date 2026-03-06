@@ -10,6 +10,16 @@
         ]
       }
     ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run --project ${CLAUDE_PLUGIN_ROOT}/deep-plan ${CLAUDE_PLUGIN_ROOT}/scripts/hooks/pre-compact-snapshot.py"
+          }
+        ]
+      }
+    ],
     "SubagentStop": [
       {
         "matcher": "deep-plan:section-writer",

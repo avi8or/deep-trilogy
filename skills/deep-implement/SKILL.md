@@ -389,17 +389,22 @@ Update task: `TaskUpdate(taskId=X, status="completed")`
 
 **Context-aware checkpoint logic:**
 
-After EVERY section commit, check context usage by reading `/tmp/claude-context-pct` (written by the statusline):
+After EVERY section commit, check context usage by reading `/tmp/claude-context-pct`:
 
 ```bash
 cat /tmp/claude-context-pct 2>/dev/null
 ```
 
-This returns a number 0-100 representing context window usage percentage.
+This file is written by the statusline (see `scripts/tools/write-context-pct.sh` for setup). It returns a number 0-100 representing context window usage percentage.
 
+**If the file exists and contains a valid number:**
 - **≥ 70%**: ALWAYS present the checkpoint prompt (regardless of section number)
 - **50-69%**: Present the checkpoint only on even sections (02, 04, 06, ...)
 - **< 50%**: Skip the checkpoint, proceed directly to Step 14
+
+**If the file does not exist or is empty** (statusline not configured):
+- Fall back to prompting on every even section (02, 04, 06, ...) as before
+- On first occurrence, mention: "For smarter context management, configure the context monitor — see `scripts/tools/write-context-pct.sh` in the plugin directory."
 
 When presenting the checkpoint:
 

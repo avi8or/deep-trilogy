@@ -15,13 +15,15 @@ Compaction keeps the session alive but may cause instruction loss. `/clear` give
 
 ## Checking Context Usage
 
-Read the context percentage from the statusline's shared file:
+Read the context percentage from the shared file (written by the statusline):
 
 ```bash
 cat /tmp/claude-context-pct 2>/dev/null
 ```
 
-This returns 0-100. If the file doesn't exist (statusline not configured), default to presenting the prompt.
+This returns 0-100. The file is written by the plugin's `scripts/tools/write-context-pct.sh` (see that file for setup instructions).
+
+**If the file does not exist** (statusline not configured), fall back to always presenting the prompt at scheduled checkpoints. On first occurrence, mention: "For smarter context management, configure the context monitor — see `scripts/tools/write-context-pct.sh` in the plugin directory."
 
 ### Decision Thresholds
 
