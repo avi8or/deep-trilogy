@@ -279,6 +279,13 @@ Planning directory: {planning_dir}
 Mode: {mode}
 ```
 
+**Save initial snapshot:**
+```bash
+uv run --project {plugin_root}/deep-plan {plugin_root}/deep-plan/scripts/tools/update_snapshot.py \
+  --snapshot-path "{planning_dir}/snapshot.json" \
+  --step 4 --step-name "Setup complete"
+```
+
 If `mode == "resume"`:
 ```
 Resuming from step {resume_from_step}
@@ -319,6 +326,14 @@ If both are needed, launch both Task tools in parallel (single message with mult
 
 Skip this step entirely if user chose no research in step 6.
 
+**Save snapshot after research:**
+```bash
+uv run --project {plugin_root}/deep-plan {plugin_root}/deep-plan/scripts/tools/update_snapshot.py \
+  --snapshot-path "{planning_dir}/snapshot.json" \
+  --step 7 --step-name "Research complete" \
+  --artifact "claude-research.md"
+```
+
 ### 8. Detailed Interview
 
 Read `{plugin_root}/skills/deep-plan/references/interview-protocol.md` for details.
@@ -330,6 +345,14 @@ Run in main context (AskUserQuestion requires it). The interview should be infor
 ### 9. Save Interview Transcript
 
 Write Q&A to `<planning_dir>/claude-interview.md`
+
+**Save snapshot after interview:**
+```bash
+uv run --project {plugin_root}/deep-plan {plugin_root}/deep-plan/scripts/tools/update_snapshot.py \
+  --snapshot-path "{planning_dir}/snapshot.json" \
+  --step 9 --step-name "Interview saved" \
+  --artifact "claude-interview.md"
+```
 
 ### 10. Write Initial Spec
 
@@ -351,6 +374,14 @@ Create detailed plan → `<planning_dir>/claude-plan.md`
 - **ZERO full function implementations** - that's deep-implement's job
 
 Write for an unfamiliar reader. The plan must be fully self-contained - an engineer or LLM with no prior context should understand *what* we're building, *why*, and *how* just from reading this document. But it does not need to see full code implementations
+
+**Save snapshot after plan generation:**
+```bash
+uv run --project {plugin_root}/deep-plan {plugin_root}/deep-plan/scripts/tools/update_snapshot.py \
+  --snapshot-path "{planning_dir}/snapshot.json" \
+  --step 11 --step-name "Plan generated" \
+  --artifact "claude-spec.md" --artifact "claude-plan.md"
+```
 
 ### 12. Context Check (Pre-External Review)
 
@@ -387,6 +418,14 @@ Remember that you are the authority on what to integrate or not. It's OK if you 
 
 **Step 2:** Update `<planning_dir>/claude-plan.md` with the integrated changes.
 
+**Save snapshot after feedback integration:**
+```bash
+uv run --project {plugin_root}/deep-plan {plugin_root}/deep-plan/scripts/tools/update_snapshot.py \
+  --snapshot-path "{planning_dir}/snapshot.json" \
+  --step 14 --step-name "Feedback integrated" \
+  --artifact "claude-integration-notes.md"
+```
+
 ### 15. User Review of Integrated Plan
 
 Use AskUserQuestion:
@@ -411,6 +450,14 @@ Verify testing context exists in `claude-research.md`. If missing, research (exi
 
 Create `claude-plan-tdd.md` mirroring the plan structure with test stubs for each section.
 
+**Save snapshot after TDD:**
+```bash
+uv run --project {plugin_root}/deep-plan {plugin_root}/deep-plan/scripts/tools/update_snapshot.py \
+  --snapshot-path "{planning_dir}/snapshot.json" \
+  --step 16 --step-name "TDD applied" \
+  --artifact "claude-plan-tdd.md"
+```
+
 ### 17. Context Check (Pre-Section Split)
 
 Run:
@@ -434,6 +481,14 @@ Read `claude-plan.md` and `claude-plan-tdd.md`. Identify natural section boundar
 **CRITICAL:** index.md MUST start with a SECTION_MANIFEST block. See the reference for format requirements and examples.
 
 Write `index.md` before proceeding to section file creation.
+
+**Save snapshot after section index:**
+```bash
+uv run --project {plugin_root}/deep-plan {plugin_root}/deep-plan/scripts/tools/update_snapshot.py \
+  --snapshot-path "{planning_dir}/snapshot.json" \
+  --step 18 --step-name "Section index created" \
+  --artifact "sections/index.md"
+```
 
 ### 19. Generate and Write Section Tasks
 
@@ -496,6 +551,13 @@ ls {planning_dir}/sections/section-*.md | wc -l
 Compare count to expected sections. If any files are missing:
 1. Re-run the missing section's subagent
 2. If still failing, fall back to manual: parse subagent response JSON and Write the file
+
+**Save snapshot after all sections written:**
+```bash
+uv run --project {plugin_root}/deep-plan {plugin_root}/deep-plan/scripts/tools/update_snapshot.py \
+  --snapshot-path "{planning_dir}/snapshot.json" \
+  --step 20 --step-name "Sections complete"
+```
 
 ### 21. Final Status & Cleanup
 
