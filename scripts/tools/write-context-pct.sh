@@ -8,10 +8,11 @@
 #
 # Or if you don't have a statusline, use this as your statusline directly:
 #
+#   Run /deep-setup to configure this automatically, or manually set:
 #   {
 #     "statusLine": {
 #       "type": "command",
-#       "command": "~/.claude/plugins/cache/avi8or-plugins/deep-trilogy/0.1.0/scripts/tools/write-context-pct.sh"
+#       "command": "<plugin-cache-path>/scripts/tools/write-context-pct.sh"
 #     }
 #   }
 #

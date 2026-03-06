@@ -126,6 +126,20 @@ def main() -> int:
     if plugin_root:
         context_parts.append(f"DEEP_PLUGIN_ROOT={plugin_root}")
 
+    # Check if context tracking is configured in settings
+    try:
+        settings_path = Path.home() / ".claude" / "settings.json"
+        if settings_path.exists():
+            settings = json.loads(settings_path.read_text())
+            sl_command = settings.get("statusLine", {}).get("command", "")
+            if "/tmp/claude-context-pct" not in sl_command:
+                context_parts.append(
+                    "DEEP_SETUP_NEEDED=context-tracking not configured. "
+                    "Run /deep-setup to enable context percentage in checkpoints."
+                )
+    except Exception:
+        pass  # Never crash the hook for a nudge
+
     # Snapshot discovery and resume context
     if _snapshot_available:
         try:
